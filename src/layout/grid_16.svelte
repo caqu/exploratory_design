@@ -8,12 +8,13 @@
   };
   afterUpdate(() => {
     areas.querySelectorAll("div").forEach(area => {
+      const d = area.getBoundingClientRect();
       dimensions[area.dataset.id] = {
         className: area.dataset.id,
-        width: area.clientWidth, // offsetWidth?
-        height: area.clientHeight, // offsetHeight?
-        left: area.offsetLeft,
-        top: area.offsetTop
+        width: Math.floor(d.width),
+        height: Math.floor(d.height),
+        left: Math.floor(d.x),
+        top: Math.floor(d.y)
       };
     });
     setDimensions(dimensions);

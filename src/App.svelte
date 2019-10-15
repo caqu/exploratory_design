@@ -1,19 +1,33 @@
 <script>
-  import Variant from "./Variant.svelte";
-  import Error from "./Error.svelte";
-  import BuyButton from "./BuyButton.svelte";
-  import Layout from "./layout/grid_16.svelte";
+  /*
+    This is a prototype for a decision support system. 
+    And so it is optimized and organized for ease of editing and 
+    rapidly trying out concepts as they would be seen by customers. 
+    
+    An ideal production-ready app will use Redux to manage state using the 
+    principles described in this book https://read.reduxbook.com
+    
+    As an example, the Layout component uses CSS and the DOM to calculate the 
+    positions of recommendations. 
+    This is unnecessary overhead for a production-ready application, but quite
+    useful for experimenting with new layouts using declarative CSS.
+  */
   import { onMount, beforeUpdate, tick } from "svelte";
   import { quintOut } from "svelte/easing";
   import { crossfade } from "svelte/transition";
   import { fade } from "svelte/transition";
   import { flip } from "svelte/animate";
+
+  import Layout from "./layout/grid_16.svelte";
+  import Error from "./Error.svelte";
+  import BuyButton from "./BuyButton.svelte";
+
+  let buyButton_visible = false;
   function spin(node, { delay, duration, index }) {
     if (node.dataset.skipentrance === "true") return {};
     const animateSoonerAfterDeselectedTarget = index > deselectedTarget ? 1 : 0;
     const delayBetweenRecommendations = 50;
     const randomIndex = Math.floor(Math.random() * transition_styles.length);
-    console.log("randomIndex", randomIndex);
     return {
       delay:
         delay +
@@ -26,7 +40,6 @@
       }
     };
   }
-  let buyButton_visible = false;
   const transition_styles = [
     eased => `opacity: ${eased};transform: scale(${eased})`
     // (eased => `opacity: ${eased};transform: scale(${eased}) rotate(${eased * 720}deg)`),
@@ -52,15 +65,16 @@
     dimensions = { ...dimensionsObject };
     dimensions[MINE] = dimensionsObject[MINE];
     isLayoutVisible = false;
-    // TODO consider undoing tight coupling between setDimensions and getSuggestions
+    // This waits to fetch recommendations until the dimensions were calculated.
+    // It's good enough for a prototype. 
+    // This should be parallelized in a production-ready application. Like:
+    // Promise.all([getDimensions, getRecommendations]).then(...)
     suggestion_listPromise = getSuggestions({
       recommendationSetId: currentRecommendationSetId
     });
   }
-  /* TODO Consider using element.getBoundingClientRect() to simplify code. */
   let selected = [{ id: uid++, src: "./images/shoe0.png" }];
   let suggestion_list = [];
-  // TODO update pattern from getter-style to withSuggestionsFor(recipe, function do () {})
   /**
    * Get suggestions from API server
    */
@@ -95,11 +109,10 @@
     }
   }
   onMount(() => {
-    // console.log("mounted");
     // TODO addEventListenerResize, reset dom, tick.
   });
   beforeUpdate(() => {
-    // console.log("suggestion_list", suggestion_list);
+    //
   });
   function selectSuggestion(suggestion, index) {
     buyButton_visible = true;
@@ -130,7 +143,7 @@
     position: relative;
   }
   /* .immovable_container.selected { */
-    /* background: radial-gradient( 
+  /* background: radial-gradient( 
       closest-side,
       rgb(255, 255, 255, 0.5),
       rgb(255, 255, 255, 0)
@@ -152,17 +165,14 @@
   .movable > img {
     margin: auto;
   }
-  img {
-    position: absolute;
-  }
 </style>
 
+{#if isLayoutVisible}
+  <Layout {setDimensions} />
+{/if}
 {#await suggestion_listPromise}
-  <div>Waiting...</div>
+  <!-- <div>One moment please...</div> -->
 {:then}
-  {#if isLayoutVisible}
-    <Layout {setDimensions} />
-  {/if}
   <div class="immovable_container suggestions">
     {#each suggestion_list as suggestion, index (suggestion.id)}
       <div
@@ -183,24 +193,6 @@
       </div>
     {/each}
   </div>
-  <div
-    class="immovable_container selected"
-    style="top:{dimension_mine.top}px;left:{dimension_mine.left}px;width:{dimension_mine.width}px;height:{dimension_mine.height}px">
-    {#each selected as suggestion, index (suggestion.id)}
-      <div
-        class="movable"
-        data-id={suggestion.id}
-        style="width:{dimension_mine['width']}px;height:{dimension_mine['height']}px"
-        in:receive={{ key: suggestion.id }}
-        out:send={{ key: suggestion.id }}>
-        <img
-          src={suggestion.src}
-          alt={suggestion.name}
-          in:fade
-          style="max-width:{dimension_mine.width}px;max-height:{dimension_mine.height}px" />
-      </div>
-    {/each}
-  </div>
   {#if buyButton_visible}
     <BuyButton
       dimensionMine={dimension_mine}
@@ -209,3 +201,28 @@
 {:catch error}
   <Error {error} />
 {/await}
+
+<!-- My Selection -->
+<div
+  class="immovable_container selected"
+  style="top:{dimension_mine.top}px;left:{dimension_mine.left}px;width:{dimension_mine.width}px;height:{dimension_mine.height}px">
+  {#each selected as recommendation, index (recommendation.id)}
+    <div
+      class="movable"
+      data-id={recommendation.id}
+      style="width:{dimension_mine['width']}px;height:{dimension_mine['height']}px"
+      in:receive={{ key: recommendation.id }}
+      out:send={{ key: recommendation.id }}>
+      <img
+        src={recommendation.src}
+        alt={recommendation.name}
+        in:fade
+        style="max-width:{dimension_mine.width}px;max-height:{dimension_mine.height}px" />
+    </div>
+  {/each}
+</div>
+{#if buyButton_visible}
+  <BuyButton
+    dimensionMine={dimension_mine}
+    on:click={() => alert('This is just a prototype. Sorry.')} />
+{/if}
