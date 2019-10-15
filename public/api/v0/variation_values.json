@@ -1,0 +1,20 @@
+{
+  "variations": [
+    {
+      "attribute": "shape",
+      "options": ["circle", "square"]
+    },
+    {
+      "attribute": "color",
+      "options": ["blue", "green"]
+    },
+    {
+      "attribute": "strokeWidth",
+      "options": ["thin", "thick"]
+    },
+    {
+      "attribute": "opacity",
+      "options": ["50%", "100%"]
+    }
+  ]
+}

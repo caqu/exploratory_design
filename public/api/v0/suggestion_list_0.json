@@ -1,0 +1,29 @@
+{
+  "recipe": "the id of the image in the center",
+  "suggestion_list": [
+    { "name": "Vamp: Skyway", "src": "./images/shoe-rand-0.png" },
+    { "name": "Vamp: Black", "src": "./images/shoe-rand-1.png" },
+    { "name": "Vamp: White", "src": "./images/shoe-rand-2.png" },
+    { "name": "Vamp: Natural White", "src": "./images/shoe-rand-3.png" },
+    { "name": "Vamp: Cyber Yellow", "src": "./images/shoe-rand-4.png" },
+    {
+      "name": "Vamp: Checkerboard Black/True White ",
+      "src": "./images/shoe-rand-5.png"
+    },
+    {
+      "name": "Vamp: Checkerboard Racing Red/Natural White",
+      "src": "./images/shoe-rand-6.png"
+    },
+    {
+      "name": "Vamp: Checkerboard Prism Pink/True White",
+      "src": "./images/shoe-rand-7.png"
+    },
+    {
+      "name": "Vamp: True White Perforated Leather",
+      "src": "./images/shoe-rand-8.png"
+    },
+    { "name": "Vamp: Skyway", "src": "./images/shoe-rand-9.png" },
+    { "name": "Vamp: Skyway", "src": "./images/shoe-rand-10.png" },
+    { "name": "Vamp: Skyway", "src": "./images/shoe-rand-11.png" }
+  ]
+}
