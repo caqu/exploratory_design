@@ -3,23 +3,20 @@
     This is a prototype for a decision support system. 
     And so it is optimized and organized for ease of editing and 
     rapidly trying out concepts as they would be seen by customers. 
-    
-    An ideal production-ready app will use Redux to manage state using the 
-    principles described in this book https://read.reduxbook.com
-    
+
     As an example, the Layout component uses CSS and the DOM to calculate the 
     positions of recommendations. 
     This is unnecessary overhead for a production-ready application, but quite
     useful for experimenting with new layouts using declarative CSS.
   */
   import { onMount, tick, onDestroy } from "svelte";
-  import { quintOut } from "svelte/easing";
   import { crossfade } from "svelte/transition";
   import { fade } from "svelte/transition";
   import { flip } from "svelte/animate";
 
   import { preloadImage } from "./utils/sequential_image_loader.js";
   import { blank_gif } from "./utils/blank_gif.js";
+  import { recommendationEntrance } from "./utils/animation_functions.js";
   import Layout from "./layout/grid_16.svelte";
   import Error from "./Error.svelte";
   import BuyButton from "./BuyButton.svelte";
@@ -42,36 +39,11 @@
       destroy() {} // no-op
     };
   }
-  function spin(node, { delay, duration, index }) {
-    if (node.dataset.skipentrance === "true") return {};
-    const animateSoonerAfterDeselectedTarget = index > deselectedTarget ? 1 : 0;
-    const delayBetweenRecommendations = 50;
-    const randomIndex = Math.floor(Math.random() * transition_styles.length);
-    return {
-      delay:
-        delay +
-        (index - animateSoonerAfterDeselectedTarget) *
-          delayBetweenRecommendations,
-      duration,
-      css: t => {
-        const eased = quintOut(t);
-        return transition_styles[randomIndex](eased);
-      }
-    };
-  }
-  const transition_styles = [
-    eased => `opacity: ${eased};transform: scale(${eased})`
-    // Spin clockwise, 70's Batman style!
-    // (eased => `opacity: ${eased};transform: scale(${eased}) rotate(${eased * 720}deg)`),
-    // Spin counter-clockwise, 70's Batman style!
-    // (eased => `opacity: ${eased};transform: scale(${eased}) rotate(${eased * -720}deg)`)
-  ];
   let deselectedTarget;
   // Animations for Recommendation-to-Selection action
   const [send, receive] = crossfade({
     duration: d => Math.sqrt(d * 400)
   });
-  let isLayoutVisible = true;
   const SELECTED = "mine";
   let currentRecommendationSetId = 0;
   let uid = 1;
@@ -85,8 +57,7 @@
     await tick();
     dimensions = { ...dimensionsObject };
     dimensions[SELECTED] = dimensionsObject[SELECTED];
-    isLayoutVisible = false;
-    // This waits to fetch recommendations until the dimensions were calculated.
+    // This waits to fetch recommendations until the dimensions are calculated.
     // It's good enough for a prototype.
     // This should be parallelized in a production-ready application. Like:
     // Promise.all([getDimensions, getRecommendations]).then(...)
@@ -142,6 +113,7 @@
   }
   onMount(() => {
     // TODO addEventListenerResize, reset dom, tick.
+    //
     selected = [{ id: uid++, src: blank_gif, imageLoaded: false }];
     preloadImage({
       url: initialImageURL,
@@ -184,13 +156,14 @@
   .immovable_container {
     position: relative;
   }
-  /* .immovable_container.selected { */
-  /* background: radial-gradient( 
+  .immovable_container.selected {
+    position: fixed;
+    /* background: radial-gradient( 
       closest-side,
       rgb(255, 255, 255, 0.5),
       rgb(255, 255, 255, 0)
     ); */
-  /* } */
+  }
   .immovable_container.recommendations {
     /* background: #d39; */
     background: #f1f2ed;
@@ -209,9 +182,8 @@
   }
 </style>
 
-{#if isLayoutVisible}
-  <Layout {setDimensions} />
-{/if}
+<Layout {setDimensions} />
+
 {#await recommendation_listPromise}
   <!-- <div>One moment please...</div> -->
 {:then}
@@ -229,7 +201,7 @@
             src={recommendation.src}
             data-id={recommendation.id}
             alt="alt"
-            in:spin={{ delay: 500, duration: 600, index }}
+            in:recommendationEntrance={{ delay: 500, duration: 600, index, deselectedTarget }}
             out:fade={{ duration: 200 }}
             data-skipentrance={recommendation.skipEntrance}
             style="max-width:{recommendation.width}px;max-height:{recommendation.height}px" />

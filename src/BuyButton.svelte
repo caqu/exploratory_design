@@ -67,7 +67,7 @@
 <button
   on:click={handleClick}
   class="configurator2-header-buy-button"
-  in:fade
+  in:fade={{delay: 2000, duration: 2000}}
   style="top:{top}px;left:{left}px">
   <span class="configurator2-header-buy-button-price">$75.00</span>
   BUY
