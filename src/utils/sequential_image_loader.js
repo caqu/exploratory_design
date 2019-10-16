@@ -4,11 +4,13 @@ const imageLoader = new Image();
 // This loads one image at a time.
 // TODO update to batch 2, 3, or 4 at a time.
 // TODO this could be improved with a cache for offline use if the network drops temporarily
-//      I would do this with a more robust implementation using Redux.
 // Here just a quick queue for the prototype.
-function preloadImage({ url, next }) {
+export function isPreloaded(url) {
+  return loadedImages.has(url);
+}
+function addImageToPreloadQueue({ url, next }) {
   if (loadedImages.has(url)) {
-    next.apply();
+    next();
   } else {
     imageQueue.push({ url, next });
     if (imageQueue.length === 1) {
@@ -27,7 +29,7 @@ function fetchNextImage() {
     // Remember that this url loaded successfully
     loadedImages.set(url, true);
     // Take the next step requested by the parent context
-    next.apply();
+    next();
     // Remove the image we just loaded from the queue
     imageQueue.shift();
     // If there are more images in the queue, get the next one
@@ -44,4 +46,4 @@ function fetchNextImage() {
     }
   };
 }
-export { preloadImage };
+export { addImageToPreloadQueue };

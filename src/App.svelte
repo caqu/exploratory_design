@@ -14,11 +14,20 @@
   import { fade } from "svelte/transition";
   import { flip } from "svelte/animate";
 
-  import { preloadImage } from "./utils/sequential_image_loader.js";
+  import { addImageToPreloadQueue } from "./utils/sequential_image_loader.js";
   import { blank_gif } from "./utils/blank_gif.js";
   import { recommendationEntrance } from "./utils/animation_functions.js";
+  import { getRecommendations } from "./utils/recommendations.js";
 
-  import { getUID, my_design, buyButton_visible } from "./app_state.js";
+  import {
+    positions_for_recommendations,
+    getUID,
+    my_design,
+    buyButton_visible,
+    recommendation_list,
+    setTarget,
+    placed_recommendations
+  } from "./app_state.js";
   import Layout from "./layout/grid_16.svelte";
   import Error from "./Error.svelte";
   import BuyButton from "./BuyButton.svelte";
@@ -28,77 +37,14 @@
     duration: d => Math.sqrt(d * 400)
   });
   const SELECTED = "mine";
-  let currentRecommendationSetId = 0;
-  let dimensions = {}; // = { mine: { width: 122, height: 122, top: 50, left: 50 } };
-  $: dimension_mine = dimensions[SELECTED] ? dimensions[SELECTED] : 0;
+  let dimension_mine;
+  positions_for_recommendations.subscribe(d => (dimension_mine = d[SELECTED] || {}));
   let recommendation_listPromise;
-  /**
-   * Set Dimensions draws a CSS grid, captures the bounding rectangles.
-   */
-  async function setDimensions(dimensionsObject) {
-    await tick();
-    dimensions = { ...dimensionsObject };
-    dimensions[SELECTED] = dimensionsObject[SELECTED];
-    // This waits to fetch recommendations until the dimensions are calculated.
-    // It's good enough for a prototype.
-    // This should be parallelized in a production-ready application. Like:
-    // Promise.all([getDimensions, getRecommendations]).then(...)
-    recommendation_listPromise = getRecommendations({
-      recommendationSetId: currentRecommendationSetId
-    });
-  }
   let selected = [];
   let initialImageURL = $my_design;
-  let recommendation_list = [];
-  let deselectedTarget;
-  /**
-   * Get recommendations from API server
-   */
-  async function getRecommendations({ recommendationSetId, skipIndex }) {
-    const res = await fetch(
-      `/api/v0/recommendations_${recommendationSetId}.json`
-    );
-    const text = await res.text();
-    if (res.ok) {
-      const parsedData = JSON.parse(text);
-      // Augment recommendations object with a local UID and a screen position
-      parsedData.recommendation_list.forEach((recommendation, index) => {
-        if (index === skipIndex) {
-          // Skip. The previous selection is going to land here.
-          deselectedTarget = skipIndex;
-        } else {
-          let { top, left, width, height } = dimensions[`area${index}`];
-          recommendation_list[index] = {
-            ...parsedData.recommendation_list[index],
-            id: getUID(),
-            skipEntrance: false,
-            imageLoaded: false,
-            top,
-            left,
-            width,
-            height
-          };
-          preloadImage({
-            url: parsedData.recommendation_list[index].src,
-            next: () => {
-              recommendation_list[index] = {
-                ...recommendation_list[index],
-                imageLoaded: true
-              };
-            }
-          });
-        }
-      });
-      return parsedData;
-    } else {
-      throw new Error(text);
-    }
-  }
   onMount(() => {
-    // TODO addEventListenerResize, reset dom, tick.
-    //
     selected = [{ id: getUID(), src: blank_gif, imageLoaded: false }];
-    preloadImage({
+    addImageToPreloadQueue({
       url: initialImageURL,
       next: () => {
         selected = [
@@ -110,7 +56,9 @@
         ];
       }
     });
+    recommendation_listPromise = getRecommendations();
   });
+  //
   function selectRecommendation(recommendation, index) {
     buyButton_visible.set(true);
     // Hold onto a reference of what's currently selected
@@ -118,20 +66,17 @@
     // Put the chosen Recommendation into the Selected spot
     selected = [recommendation];
     // To give Customers an "undo" path, move the old selection into the chosen Recommendation's old spot
-    recommendation_list[index] = {
-      ...current,
-      skipEntrance: true,
-      top: recommendation.top,
-      left: recommendation.left,
-      width: recommendation.width,
-      height: recommendation.height
-    };
-    // Fetch new recommendations
-    currentRecommendationSetId = (currentRecommendationSetId + 1) % 3; // fake it till you make it!!
-    getRecommendations({
-      recommendationSetId: currentRecommendationSetId,
-      skipIndex: index
+    recommendation_list.update(current_list => {
+      const updated_list = [...current_list];
+      updated_list[index] = {
+        ...current,
+        skipEntrance: true
+      };
+      return updated_list;
     });
+    setTarget(index);
+    // Fetch new recommendations from the "API" (wink wink)
+    getRecommendations();
   }
 </script>
 
@@ -141,6 +86,7 @@
   }
   .immovable_container.selected {
     position: fixed;
+    /* Centered spotlight--looks great but needs png to be transparent. */
     /* background: radial-gradient( 
       closest-side,
       rgb(255, 255, 255, 0.5),
@@ -148,6 +94,7 @@
     ); */
   }
   .immovable_container.recommendations {
+    /* Bubble gum background--looks great but needs PNG to be transparent. */
     /* background: #d39; */
     background: #f1f2ed;
     position: fixed;
@@ -165,26 +112,28 @@
   }
 </style>
 
-<Layout {setDimensions} />
+<Layout />
 
 {#await recommendation_listPromise}
   <!-- <div>One moment please...</div> -->
 {:then}
   <div class="immovable_container recommendations">
-    {#each recommendation_list as recommendation, index (recommendation.id)}
+    {#each $placed_recommendations as recommendation, index (recommendation.id)}
       <div
         class="movable"
         data-id={recommendation.id}
         style="top:{recommendation.top}px;left:{recommendation.left}px;width:{recommendation.width}px;height:{recommendation.height}px"
         on:click={() => selectRecommendation(recommendation, index)}
         in:receive={{ key: recommendation.id }}
-        out:send={{ key: recommendation.id }}>
+        out:send={{ key: recommendation.id }}
+        data-imgloaded={recommendation.imageLoaded}
+        >
         {#if recommendation.imageLoaded}
           <img
             src={recommendation.src}
             data-id={recommendation.id}
             alt="alt"
-            in:recommendationEntrance={{ delay: 500, duration: 600, index, deselectedTarget }}
+            in:recommendationEntrance={{ delay: 500, duration: 600, index }}
             out:fade={{ duration: 200 }}
             data-skipentrance={recommendation.skipEntrance}
             style="max-width:{recommendation.width}px;max-height:{recommendation.height}px" />

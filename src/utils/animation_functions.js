@@ -1,11 +1,12 @@
 import { quintOut } from "svelte/easing";
+import { getTarget } from "../app_state.js";
 
 export const recommendationEntrance = function recommendationEntrance(
   node,
-  { delay, duration, index, deselectedTarget }
+  { delay, duration, index }
 ) {
   if (node.dataset.skipentrance === "true") return {};
-  const animateSoonerAfterDeselectedTarget = index > deselectedTarget ? 1 : 0;
+  const animateSoonerAfterDeselectedTarget = index > getTarget() ? 1 : 0;
   const delayBetweenRecommendations = 50;
   const randomIndex = Math.floor(Math.random() * transition_styles.length);
   return {
