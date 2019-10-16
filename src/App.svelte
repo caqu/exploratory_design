@@ -12,17 +12,19 @@
     This is unnecessary overhead for a production-ready application, but quite
     useful for experimenting with new layouts using declarative CSS.
   */
-  import { onMount, beforeUpdate, tick } from "svelte";
+  import { onMount, tick, onDestroy } from "svelte";
   import { quintOut } from "svelte/easing";
   import { crossfade } from "svelte/transition";
   import { fade } from "svelte/transition";
   import { flip } from "svelte/animate";
 
-  import { enqueueImage } from "./utils/sequential_image_loader.js";
+  import { preloadImage } from "./utils/sequential_image_loader.js";
   import { blank_gif } from "./utils/blank_gif.js";
   import Layout from "./layout/grid_16.svelte";
   import Error from "./Error.svelte";
   import BuyButton from "./BuyButton.svelte";
+
+  import { my_design, buyButton_visible } from "./app_state.js";
 
   const lazyLoadedImages = new Map();
   function lazy(node, data) {
@@ -93,7 +95,7 @@
     });
   }
   let selected = [];
-  const initialImageURL = "./images/shoe0.png";
+  let initialImageURL = $my_design;
   let recommendation_list = [];
   /**
    * Get recommendations from API server
@@ -111,18 +113,18 @@
           // Skip. The previous selection is going to land here.
           deselectedTarget = skipIndex;
         } else {
-          let dimensions_of_area_for_recommendation = dimensions[`area${index}`];
+          let { top, left, width, height } = dimensions[`area${index}`];
           recommendation_list[index] = {
             ...parsedData.recommendation_list[index],
             id: uid++,
             skipEntrance: false,
             imageLoaded: false,
-            top: dimensions_of_area_for_recommendation.top,
-            left: dimensions_of_area_for_recommendation.left,
-            width: dimensions_of_area_for_recommendation.width,
-            height: dimensions_of_area_for_recommendation.height
+            top,
+            left,
+            width,
+            height
           };
-          enqueueImage({
+          preloadImage({
             url: parsedData.recommendation_list[index].src,
             next: () => {
               recommendation_list[index] = {
@@ -141,7 +143,7 @@
   onMount(() => {
     // TODO addEventListenerResize, reset dom, tick.
     selected = [{ id: uid++, src: blank_gif, imageLoaded: false }];
-    enqueueImage({
+    preloadImage({
       url: initialImageURL,
       next: () => {
         selected = [
@@ -154,13 +156,8 @@
       }
     });
   });
-  beforeUpdate(() => {
-    //
-  });
-  //
-  let buyButton_visible = false;
   function selectRecommendation(recommendation, index) {
-    buyButton_visible = true;
+    buyButton_visible.set(true);
     // Hold onto a reference of what's currently selected
     let current = selected[0];
     // Put the chosen Recommendation into the Selected spot
@@ -240,11 +237,6 @@
       </div>
     {/each}
   </div>
-  {#if buyButton_visible}
-    <BuyButton
-      dimensionMine={dimension_mine}
-      on:click={() => alert('This is just a prototype. Sorry.')} />
-  {/if}
 {:catch error}
   <Error {error} />
 {/await}
@@ -270,8 +262,11 @@
     </div>
   {/each}
 </div>
-{#if buyButton_visible}
+{#if $buyButton_visible}
   <BuyButton
     dimensionMine={dimension_mine}
-    on:click={() => alert('This is just a prototype. Sorry.')} />
+    handleClick={() => {
+      alert('This is just a prototype. Sorry. Sending you to the real site!');
+      window.open('https://www.vans.com/customizer.slip-on-classic.html', '_blank');
+    }} />
 {/if}

@@ -1,22 +1,7 @@
-const loadedImages = new Map();
-const imageQueue = new Array();
-const imageLoader = new Image();
-// This loads one image at a time.
-// TODO update to batch 2, 3, or 4 at a time.
-// TODO this could be improved with a cache for offline use if the network drops temporarily
-//      I would do this with a more robust implementation using Redux.
-// Here just a quick queue for the prototype.
-function preloadImage({ url, next }) {
-  if (loadedImages.has(url)) {
-    next.apply();
-  } else {
-    imageQueue.push({ url, next });
-    if (imageQueue.length === 1) {
-      // (re)start the sequence
-      fetchNextImage();
-    }
-  }
-}
+import { writable } from "svelte/store";
+
+const loadedImages = {};
+
 function fetchNextImage() {
   // if we've got 'em all, stop
   if (imageQueue.length === 0) return;
@@ -44,4 +29,14 @@ function fetchNextImage() {
     }
   };
 }
-export { preloadImage };
+function createLoader() {
+  const { subscribe, set, update } = writable([]);
+  return {
+    subscribe,
+    enqueue: (url, next) => {
+      update(arr => [...arr, { url }]);
+    },
+    dequeue: () => {}
+  };
+}
+export const loader = createLoader();
