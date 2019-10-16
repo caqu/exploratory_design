@@ -9,6 +9,9 @@
   afterUpdate(() => {
     areas.querySelectorAll("div").forEach(area => {
       const d = area.getBoundingClientRect();
+      // if (d.height === 0) {
+      //   debugger;
+      // }
       dimensions[area.dataset.id] = {
         className: area.dataset.id,
         width: Math.floor(d.width),

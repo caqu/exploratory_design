@@ -18,11 +18,28 @@
   import { fade } from "svelte/transition";
   import { flip } from "svelte/animate";
 
+  import { enqueueImage } from "./utils/sequential_image_loader.js";
+  import { blank_gif } from "./utils/blank_gif.js";
   import Layout from "./layout/grid_16.svelte";
   import Error from "./Error.svelte";
   import BuyButton from "./BuyButton.svelte";
 
-  let buyButton_visible = false;
+  const lazyLoadedImages = new Map();
+  function lazy(node, data) {
+    if (lazyLoadedImages.has(data.src)) {
+      node.setAttribute("src", data.src);
+    } else {
+      const img = new Image();
+      img.src = data.src;
+      img.onload = () => {
+        lazyLoadedImages.set(data.src, true);
+        node.setAttribute("src", data.src);
+      };
+    }
+    return {
+      destroy() {} // no-op
+    };
+  }
   function spin(node, { delay, duration, index }) {
     if (node.dataset.skipentrance === "true") return {};
     const animateSoonerAfterDeselectedTarget = index > deselectedTarget ? 1 : 0;
@@ -42,7 +59,9 @@
   }
   const transition_styles = [
     eased => `opacity: ${eased};transform: scale(${eased})`
+    // Spin clockwise, 70's Batman style!
     // (eased => `opacity: ${eased};transform: scale(${eased}) rotate(${eased * 720}deg)`),
+    // Spin counter-clockwise, 70's Batman style!
     // (eased => `opacity: ${eased};transform: scale(${eased}) rotate(${eased * -720}deg)`)
   ];
   let deselectedTarget;
@@ -51,11 +70,11 @@
     duration: d => Math.sqrt(d * 400)
   });
   let isLayoutVisible = true;
-  const MINE = "mine";
+  const SELECTED = "mine";
   let currentRecommendationSetId = 0;
   let uid = 1;
   let dimensions = {}; // = { mine: { width: 122, height: 122, top: 50, left: 50 } };
-  $: dimension_mine = dimensions[MINE] ? dimensions[MINE] : 0;
+  $: dimension_mine = dimensions[SELECTED] ? dimensions[SELECTED] : 0;
   let suggestion_listPromise;
   /**
    * Set Dimensions draws a CSS grid, captures the bounding rectangles.
@@ -63,17 +82,19 @@
   async function setDimensions(dimensionsObject) {
     await tick();
     dimensions = { ...dimensionsObject };
-    dimensions[MINE] = dimensionsObject[MINE];
+    dimensions[SELECTED] = dimensionsObject[SELECTED];
     isLayoutVisible = false;
     // This waits to fetch recommendations until the dimensions were calculated.
-    // It's good enough for a prototype. 
+    // It's good enough for a prototype.
     // This should be parallelized in a production-ready application. Like:
     // Promise.all([getDimensions, getRecommendations]).then(...)
     suggestion_listPromise = getSuggestions({
       recommendationSetId: currentRecommendationSetId
     });
   }
-  let selected = [{ id: uid++, src: "./images/shoe0.png" }];
+  //
+  let selected = [];
+  const initialImageURL = "./images/shoe0.png";
   let suggestion_list = [];
   /**
    * Get suggestions from API server
@@ -96,11 +117,21 @@
             ...parsedData.suggestion_list[index],
             id: uid++,
             skipEntrance: false,
+            imageLoaded: false,
             top: dimensions_of_area_for_suggestion.top,
             left: dimensions_of_area_for_suggestion.left,
             width: dimensions_of_area_for_suggestion.width,
             height: dimensions_of_area_for_suggestion.height
           };
+          enqueueImage({
+            url: parsedData.suggestion_list[index].src,
+            next: () => {
+              suggestion_list[index] = {
+                ...suggestion_list[index],
+                imageLoaded: true
+              };
+            }
+          });
         }
       });
       return parsedData;
@@ -110,10 +141,25 @@
   }
   onMount(() => {
     // TODO addEventListenerResize, reset dom, tick.
+    selected = [{ id: uid++, src: blank_gif, imageLoaded: false }];
+    enqueueImage({
+      url: initialImageURL,
+      next: () => {
+        selected = [
+          {
+            ...selected[0],
+            src: initialImageURL,
+            imageLoaded: true
+          }
+        ];
+      }
+    });
   });
   beforeUpdate(() => {
     //
   });
+  //
+  let buyButton_visible = false;
   function selectSuggestion(suggestion, index) {
     buyButton_visible = true;
     // Hold onto a reference of what's currently selected
@@ -182,14 +228,16 @@
         on:click={() => selectSuggestion(suggestion, index)}
         in:receive={{ key: suggestion.id }}
         out:send={{ key: suggestion.id }}>
-        <img
-          src={suggestion.src}
-          data-id={suggestion.id}
-          alt="alt"
-          in:spin={{ delay: 500, duration: 600, index }}
-          out:fade={{ duration: 200 }}
-          data-skipentrance={suggestion.skipEntrance}
-          style="max-width:{suggestion.width}px;max-height:{suggestion.height}px" />
+        {#if suggestion.imageLoaded}
+          <img
+            src={suggestion.src}
+            data-id={suggestion.id}
+            alt="alt"
+            in:spin={{ delay: 500, duration: 600, index }}
+            out:fade={{ duration: 200 }}
+            data-skipentrance={suggestion.skipEntrance}
+            style="max-width:{suggestion.width}px;max-height:{suggestion.height}px" />
+        {/if}
       </div>
     {/each}
   </div>
@@ -213,11 +261,13 @@
       style="width:{dimension_mine['width']}px;height:{dimension_mine['height']}px"
       in:receive={{ key: recommendation.id }}
       out:send={{ key: recommendation.id }}>
-      <img
-        src={recommendation.src}
-        alt={recommendation.name}
-        in:fade
-        style="max-width:{dimension_mine.width}px;max-height:{dimension_mine.height}px" />
+      {#if recommendation.imageLoaded}
+        <img
+          src={recommendation.src}
+          alt={recommendation.name}
+          in:fade
+          style="max-width:{dimension_mine.width}px;max-height:{dimension_mine.height}px" />
+      {/if}
     </div>
   {/each}
 </div>
