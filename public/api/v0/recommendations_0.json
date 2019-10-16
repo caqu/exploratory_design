@@ -1,6 +1,6 @@
 {
   "recipe": "the id of the image in the center",
-  "suggestion_list": [
+  "recommendation_list": [
     { "name": "Vamp: Skyway", "src": "./images/shoe-rand-0.png" },
     { "name": "Vamp: Black", "src": "./images/shoe-rand-1.png" },
     { "name": "Vamp: White", "src": "./images/shoe-rand-2.png" },
