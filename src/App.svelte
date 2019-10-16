@@ -17,36 +17,18 @@
   import { preloadImage } from "./utils/sequential_image_loader.js";
   import { blank_gif } from "./utils/blank_gif.js";
   import { recommendationEntrance } from "./utils/animation_functions.js";
+
+  import { getUID, my_design, buyButton_visible } from "./app_state.js";
   import Layout from "./layout/grid_16.svelte";
   import Error from "./Error.svelte";
   import BuyButton from "./BuyButton.svelte";
 
-  import { my_design, buyButton_visible } from "./app_state.js";
-
-  const lazyLoadedImages = new Map();
-  function lazy(node, data) {
-    if (lazyLoadedImages.has(data.src)) {
-      node.setAttribute("src", data.src);
-    } else {
-      const img = new Image();
-      img.src = data.src;
-      img.onload = () => {
-        lazyLoadedImages.set(data.src, true);
-        node.setAttribute("src", data.src);
-      };
-    }
-    return {
-      destroy() {} // no-op
-    };
-  }
-  let deselectedTarget;
   // Animations for Recommendation-to-Selection action
   const [send, receive] = crossfade({
     duration: d => Math.sqrt(d * 400)
   });
   const SELECTED = "mine";
   let currentRecommendationSetId = 0;
-  let uid = 1;
   let dimensions = {}; // = { mine: { width: 122, height: 122, top: 50, left: 50 } };
   $: dimension_mine = dimensions[SELECTED] ? dimensions[SELECTED] : 0;
   let recommendation_listPromise;
@@ -68,6 +50,7 @@
   let selected = [];
   let initialImageURL = $my_design;
   let recommendation_list = [];
+  let deselectedTarget;
   /**
    * Get recommendations from API server
    */
@@ -87,7 +70,7 @@
           let { top, left, width, height } = dimensions[`area${index}`];
           recommendation_list[index] = {
             ...parsedData.recommendation_list[index],
-            id: uid++,
+            id: getUID(),
             skipEntrance: false,
             imageLoaded: false,
             top,
@@ -114,7 +97,7 @@
   onMount(() => {
     // TODO addEventListenerResize, reset dom, tick.
     //
-    selected = [{ id: uid++, src: blank_gif, imageLoaded: false }];
+    selected = [{ id: getUID(), src: blank_gif, imageLoaded: false }];
     preloadImage({
       url: initialImageURL,
       next: () => {
