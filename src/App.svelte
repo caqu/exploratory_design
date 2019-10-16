@@ -92,7 +92,6 @@
       recommendationSetId: currentRecommendationSetId
     });
   }
-  //
   let selected = [];
   const initialImageURL = "./images/shoe0.png";
   let recommendation_list = [];
